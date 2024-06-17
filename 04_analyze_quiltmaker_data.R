@@ -232,7 +232,7 @@ plot_data %>%
   labs(
     title = "Number of Quilts per Maker",
     subtitle = "The number of quilts documented in QuiltIndex.org for each maker is usually less 
-    than the number of quilts made by each maker (as estimated by the reporter). The 
+    than the number of quilts made by each maker (as estimated by the documenter). The 
     discrepancy is greatest for master makers. 
     
     Many makers have only one quilt documented in QuiltIndex.org.",
@@ -445,7 +445,7 @@ plot_data <- clean_travel_data %>%
 plot_data %>%
   ggplot(aes(x = location, 
              stratum = country, 
-             alluvium = quiltmaker_id, 
+             alluvium = path_id, 
              fill = country)) +
   geom_stratum(color="white") + 
   geom_flow() +
@@ -485,8 +485,8 @@ plot_data_with_geography %>%
   geom_col(fill=custom_colors(1)) +
   basic_layers +
   labs(title="Time Period of Quilt Making",
-       subtitle="Quilt making peaked in the 1930s-1940s and is currently
-       experiencing a resurgence.",
+       subtitle="For our known makers, quilt making peaked in the 1930s-1940s 
+       and is currently experiencing a resurgence.",
        x="Quilt time period",
        y="Average/year")
 

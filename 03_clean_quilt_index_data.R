@@ -1258,30 +1258,13 @@ gg_miss_var(maker_data, show_pct = TRUE)
 
 #save dedupe work ----------------------------------------------------------------------
 #Save all that hard work.
-write.csv(maker_data, "03_deduped_maker_data.csv")
-
-
-#create team_from_quilted_by -------------------
-maker_data <- read.csv("03_deduped_maker_data.csv")
-read_problems <- problems(maker_data)
-
-test_data <- tibble(
-  quilt_id = c(1:22),
-  quilt_top_maker_name = c(
-    ""
-  ))
-
-
-id1 <- c(rep("Jo", 3), "Ann", "Jill")
-id2 <- c("Bob", "Jo", "Ann", "Steve", "Rob")
-merge_ids(id1, id2, shrink = TRUE)
-merge_ids(id1, id2, expand = FALSE)
+write.csv(maker_data, "03_cleaned_maker_data.csv")
 
 
 
 #create travel data ---------------------------------------------------------
 travel_data <- read.csv("03_cleaned_maker_data.csv")
-read_problems <- problems(maker_data)
+read_problems <- problems(travel_data)
 
 travel_data <- travel_data %>%
   filter(!(birth_place_country == quilt_country & quilt_country == country)) %>%
@@ -1290,28 +1273,74 @@ travel_data <- travel_data %>%
            quilt_country,
            country) 
 
-#troublesome data
 travel_data <- travel_data %>%
-  filter(!quiltmaker_id %in% c("21", "147", "233", "1283", "1479", "1806"))
+  group_by(quiltmaker_id) %>% 
+  mutate(index = row_number(),
+         path_id = paste(quiltmaker_id, index, sep="-")) %>%
+  ungroup() %>%
+  select(-c(quiltmaker_id, index))
 
 
 travel_data <- travel_data %>%
   pivot_longer(cols=c("birth_place_country", "quilt_country", "country"),
                names_to="location",
-               values_to="country")
+               values_to="country") 
 
 write.csv(travel_data, "03_travel_data.csv")
 
 
 
+#create quiltmaker report ---------------------------------------------------------
+report_data <- read.csv("03_cleaned_maker_data.csv")
+read_problems <- problems(report_data)
 
 
-#Reminders:---------------
-#ideas for the quiltmaker report - pivot wider on quiltmaker_top_maker_name, unite the quilt_id 
-#columns with remove true. then pivot wider on quiltmaker_id and unite 
-#quiltmaker_top_maker_name columns with remove true.
-#then sort by something (that shows most quilts made somehow) 
-#and remove quitmaker_id (because it is ephemeral, I don't want to
-#have it in any report). This should give me a report of each quilter, with all their
-#name variations in one field and all their quilt_ids gathered in columns that relate to their
-#name variations.
+report_data <- report_data %>%
+  select(quilt_id, quiltmaker_id, quilt_top_maker_name) %>%
+  distinct(quilt_id, quiltmaker_id, quilt_top_maker_name)
+
+report_data <- report_data %>%
+  group_by(quiltmaker_id) %>%
+  mutate(number_of_quilts = n(),
+         index = row_number())
+
+report_data <- report_data %>%
+  pivot_wider(names_from=index, names_prefix="quilt_id_", values_from=quilt_id)
+
+report_data <- report_data %>%
+  unite(col="quilt_ids", starts_with("quilt_id_"), sep=" ", remove=TRUE, 
+        na.rm=TRUE)
+  
+report_data <- report_data %>%
+  group_by(quiltmaker_id) %>%
+  mutate(index = row_number()) %>%
+  ungroup()
+
+name_data <- report_data %>%
+  pivot_wider(id_cols=c(quiltmaker_id,number_of_quilts), 
+              names_from=index, names_prefix="name_", 
+              values_from=quilt_top_maker_name)
+
+name_data <- name_data %>%
+  unite(col="quilt_top_maker_names", starts_with("name_"), sep=" | ", 
+        remove=TRUE, na.rm=TRUE)
+
+quilt_id_data <- report_data%>%
+  pivot_wider(id_cols=c(quiltmaker_id), names_from=index, 
+              names_prefix="quilt_ids_", 
+              values_from=quilt_ids,
+              values_fill="")
+
+report_data <- 
+  left_join(name_data,
+            quilt_id_data,
+            join_by(quiltmaker_id == quiltmaker_id))
+
+report_data <- report_data %>%
+  select(-quiltmaker_id) %>%
+  arrange(desc(number_of_quilts))
+
+report_data <- report_data %>%
+  filter(number_of_quilts > 1)
+
+write.csv(report_data, "03_top_quilt_makers.csv")
